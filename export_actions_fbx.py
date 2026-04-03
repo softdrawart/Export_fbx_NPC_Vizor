@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "Vizor Precise Exporter",
-    "author": "AI Assistant",
+    "name": "Vizor NPC FBX Exporter",
+    "author": "AI Assistant with Mikhail Lebedev",
     "version": (1, 4),
     "blender": (2, 80, 0),
     "location": "View3D > Sidebar > Batch Export",
-    "description": "Exports Model and NLA with precise Vizor script settings",
+    "description": "Exports Model and NLA with Vizor script settings",
     "category": "Import-Export",
 }
 
