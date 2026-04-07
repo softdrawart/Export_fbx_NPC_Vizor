@@ -26,9 +26,6 @@ class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "Select the Armature")
-            return {'CANCELLED'}
         
         if not context.scene.export_path:
             self.report({'ERROR'}, "Set export path first")
@@ -37,20 +34,13 @@ class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
         export_path = bpy.path.abspath(context.scene.export_path)
         file_path = os.path.join(export_path, obj.name + "_Model.fbx")
 
-        # Select Armature and its Meshes
-        bpy.ops.object.select_all(action='DESELECT')
-        obj.select_set(True)
-        for child in obj.children:
-            if child.type == 'MESH':
-                child.select_set(True)
-
         # Settings from mob_clon2.py
         bpy.ops.export_scene.vizor_fbx(
             filepath=file_path,
             use_selection=True,
             use_visible=False,
             use_active_collection=False,
-            global_scale=0.5899999737739563,
+            global_scale=0.5899999737739563, #scale of the model exported
             apply_unit_scale=True,
             apply_scale_options='FBX_SCALE_UNITS',
             use_space_transform=True,
@@ -71,7 +61,7 @@ class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
             secondary_bone_axis='X',
             use_armature_deform_only=True,
             armature_nodetype='NULL',
-            bake_anim=True,
+            bake_anim=False,
             bake_anim_use_all_bones=False,
             bake_anim_use_nla_strips=True,
             bake_anim_use_all_actions=False,
