@@ -198,8 +198,10 @@ class VIEW3D_PT_vizor_exporter_precise(bpy.types.Panel):
         scene = context.scene
 
         layout.prop(scene, "export_path", text="Folder")
+
+        layout.label(text=f"Global Scale={GLOBAL_SCALE}")
         
-        layout.label(text="Export Model:")
+        layout.label(text=f"Export Model:")
         layout.operator("export.vizor_model_precise", icon='MESH_DATA')
         
         layout.separator()
