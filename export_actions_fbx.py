@@ -11,6 +11,8 @@ bl_info = {
 import bpy
 import os
 
+GLOBAL_SCALE=0.74 #scale of the model exported
+
 class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
     """Export Model using (mob_clon2) settings"""
     bl_idname = "export.vizor_model_precise"
@@ -26,13 +28,20 @@ class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
+
+        # Use the name of the first armature found in selection for the filename
+        naming_obj = next((o for o in context.selected_objects if o.type == 'ARMATURE'), None)
+        if not naming_obj:
+            self.report({'ERROR'}, "No Armature found")
+            return {'CANCELLED'}
+
         
         if not context.scene.export_path:
             self.report({'ERROR'}, "Set export path first")
             return {'CANCELLED'}
 
         export_path = bpy.path.abspath(context.scene.export_path)
-        file_path = os.path.join(export_path, obj.name + "_Model.fbx")
+        file_path = os.path.join(export_path, naming_obj.name + "_Model.fbx")
 
         # Settings from mob_clon2.py
         bpy.ops.export_scene.vizor_fbx(
@@ -40,7 +49,7 @@ class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
             use_selection=True,
             use_visible=False,
             use_active_collection=False,
-            global_scale=0.5899999737739563, #scale of the model exported
+            global_scale=GLOBAL_SCALE, #scale of the model exported
             apply_unit_scale=True,
             apply_scale_options='FBX_SCALE_UNITS',
             use_space_transform=True,
@@ -132,7 +141,7 @@ class EXPORT_OT_vizor_nla_precise(bpy.types.Operator):
                 use_selection=True,
                 use_visible=False,
                 use_active_collection=False,
-                global_scale=1.0,
+                global_scale=GLOBAL_SCALE,
                 apply_unit_scale=False,
                 apply_scale_options='FBX_SCALE_UNITS',
                 use_space_transform=False,
