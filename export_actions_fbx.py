@@ -13,9 +13,9 @@ import os
 
 GLOBAL_SCALE=0.74 #scale of the model exported
 
-class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
+class EXPORT_OT_vizor_model(bpy.types.Operator):
     """Export Model using (mob_clon2) settings"""
-    bl_idname = "export.vizor_model_precise"
+    bl_idname = "export.vizor_model"
     bl_label = "Export Model (mob_clon2)"
 
     @classmethod
@@ -88,9 +88,9 @@ class EXPORT_OT_vizor_model_precise(bpy.types.Operator):
         self.report({'INFO'}, f"Model Exported: {obj.name}_Model.fbx")
         return {'FINISHED'}
 
-class EXPORT_OT_vizor_nla_precise(bpy.types.Operator):
+class EXPORT_OT_vizor_nla_separate(bpy.types.Operator):
     """Export NLA Tracks using (my_HH_export_animation) settings"""
-    bl_idname = "export.vizor_nla_precise"
+    bl_idname = "export.vizor_nla_separate"
     bl_label = "Export NLA Tracks (my_HH)"
     
     @classmethod
@@ -185,6 +185,95 @@ class EXPORT_OT_vizor_nla_precise(bpy.types.Operator):
         self.report({'INFO'}, f"Exported {len(tracks)} Animations")
         return {'FINISHED'}
 
+class EXPORT_OT_vizor_full_mesh_anim(bpy.types.Operator):
+    """Export single FBX with Armature + Meshes + All Animations (Single File)"""
+    bl_idname = "export.vizor_full_mesh_anim_precise"
+    bl_label = "Export Full Model + All Anims"
+
+    @classmethod
+    def poll(cls, context):
+        selected = context.selected_objects
+        has_armature = any(obj.type == 'ARMATURE' for obj in selected)
+        has_mesh = any(obj.type == 'MESH' for obj in selected)
+        return has_armature and has_mesh
+
+    def execute(self, context):
+        naming_obj = next((o for o in context.selected_objects if o.type == 'ARMATURE'), None)
+        if not context.scene.export_path:
+            self.report({'ERROR'}, "Set export path first")
+            return {'CANCELLED'}
+
+        export_path = bpy.path.abspath(context.scene.export_path)
+        file_path = os.path.join(export_path, naming_obj.name + "_Full.fbx")
+
+        # 1. STORE EXISTING MUTE STATES
+        state_backup = []
+        if naming_obj.animation_data and naming_obj.animation_data.nla_tracks:
+            for track in naming_obj.animation_data.nla_tracks:
+                track_info = {
+                    'track': track,
+                    'mute': track.mute,
+                    'strips': [{'strip': s, 'mute': s.mute} for s in track.strips]
+                }
+                state_backup.append(track_info)
+                
+                # 2. ENABLE EVERYTHING FOR EXPORT
+                track.mute = False
+                for strip in track.strips:
+                    strip.mute = False
+
+        # Use Animation Settings (Scale 1.0, Y Forward) but export both Mesh and Armature
+        # Includes all animations (NLA Strips + All Actions)
+        bpy.ops.export_scene.vizor_fbx(
+                filepath=file_path,
+                use_selection=True,
+                use_visible=False,
+                object_types={'ARMATURE', 'MESH'},
+                use_active_collection=False,
+                global_scale=GLOBAL_SCALE,
+                apply_unit_scale=False,
+                apply_scale_options='FBX_SCALE_UNITS',
+                use_space_transform=False,
+                bake_space_transform=False,
+                use_mesh_modifiers=True,
+                use_mesh_modifiers_render=True,
+                mesh_smooth_type='OFF',
+                colors_type='SRGB',
+                prioritize_active_color=False,
+                use_subsurf=False,
+                use_mesh_edges=False,
+                use_tspace=False,
+                use_triangles=False,
+                use_custom_props=False,
+                add_leaf_bones=False,
+                primary_bone_axis='Y',
+                secondary_bone_axis='X',
+                use_armature_deform_only=True,
+                armature_nodetype='REMOVE_GHOST',
+                bake_anim=True,
+                bake_anim_use_all_bones=True,
+                bake_anim_use_nla_strips=True,
+                bake_anim_use_all_actions=False,
+                bake_anim_force_startend_keying=True,
+                bake_anim_step=1.0,
+                bake_anim_simplify_factor=0.0,
+                path_mode='AUTO',
+                embed_textures=False,
+                batch_mode='OFF',
+                use_batch_own_dir=True,
+                axis_forward='Y',
+                axis_up='Z'
+            )
+        
+        # 4. REVERT TO STORED MUTE STATES
+        for info in state_backup:
+            info['track'].mute = info['mute']
+            for s_info in info['strips']:
+                s_info['strip'].mute = s_info['mute']
+
+        self.report({'INFO'}, f"Full Model Exported: {naming_obj.name}_Full.fbx")
+        return {'FINISHED'}
+
 class VIEW3D_PT_vizor_exporter_precise(bpy.types.Panel):
     bl_label = "Vizor Batch Exporter"
     bl_idname = "VIEW3D_PT_vizor_exporter_precise"
@@ -201,24 +290,31 @@ class VIEW3D_PT_vizor_exporter_precise(bpy.types.Panel):
 
         layout.label(text=f"Global Scale={GLOBAL_SCALE}")
         
-        layout.label(text=f"Export Model:")
-        layout.operator("export.vizor_model_precise", icon='MESH_DATA')
+        layout.label(text=f"Export Model FBX:")
+        layout.operator(EXPORT_OT_vizor_model.bl_idname, icon='MESH_DATA')
         
         layout.separator()
         
-        layout.label(text="Export Animations:")
-        layout.operator("export.vizor_nla_precise", icon='ANIM_DATA')
+        layout.label(text="Export Animations Separate FBX:")
+        layout.operator(EXPORT_OT_vizor_nla_separate.bl_idname, icon='ANIM_DATA')
+
+        layout.separator()
+        
+        layout.label(text="Export Animations One FBX:")
+        layout.operator(EXPORT_OT_vizor_full_mesh_anim.bl_idname, icon='ANIM_DATA')
 
 def register():
-    bpy.utils.register_class(EXPORT_OT_vizor_model_precise)
-    bpy.utils.register_class(EXPORT_OT_vizor_nla_precise)
+    bpy.utils.register_class(EXPORT_OT_vizor_model)
+    bpy.utils.register_class(EXPORT_OT_vizor_nla_separate)
     bpy.utils.register_class(VIEW3D_PT_vizor_exporter_precise)
+    bpy.utils.register_class(EXPORT_OT_vizor_full_mesh_anim)
     bpy.types.Scene.export_path = bpy.props.StringProperty(name="Export Path", subtype='DIR_PATH')
 
 def unregister():
-    bpy.utils.unregister_class(EXPORT_OT_vizor_model_precise)
-    bpy.utils.unregister_class(EXPORT_OT_vizor_nla_precise)
+    bpy.utils.unregister_class(EXPORT_OT_vizor_model)
+    bpy.utils.unregister_class(EXPORT_OT_vizor_nla_separate)
     bpy.utils.unregister_class(VIEW3D_PT_vizor_exporter_precise)
+    bpy.utils.unregister_class(EXPORT_OT_vizor_full_mesh_anim)
     del bpy.types.Scene.export_path
 
 if __name__ == "__main__":
