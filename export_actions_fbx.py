@@ -274,6 +274,73 @@ class EXPORT_OT_vizor_full_mesh_anim(bpy.types.Operator):
         self.report({'INFO'}, f"Full Model Exported: {naming_obj.name}_Full.fbx")
         return {'FINISHED'}
 
+class EXPORT_OT_vizor_active_nla_mesh(bpy.types.Operator):
+    """Export the currently UNMUTED NLA track with selected Meshes"""
+    bl_idname = "export.vizor_active_nla_mesh"
+    bl_label = "Export Active NLA + Mesh"
+
+    @classmethod
+    def poll(cls, context):
+        selected = context.selected_objects
+        has_armature = any(obj.type == 'ARMATURE' for obj in selected)
+        has_mesh = any(obj.type == 'MESH' for obj in selected)
+        return has_armature and has_mesh
+
+    def execute(self, context):
+        arm = next((o for o in context.selected_objects if o.type == 'ARMATURE'), None)
+        meshes = [o for o in context.selected_objects if o.type == 'MESH']
+        
+        if not arm.animation_data or not arm.animation_data.nla_tracks:
+            self.report({'ERROR'}, "No NLA data found on Armature")
+            return {'CANCELLED'}
+
+        # Find the first track that is not muted
+        active_track = next((t for t in arm.animation_data.nla_tracks if not t.mute), None)
+        
+        if not active_track:
+            self.report({'ERROR'}, "No unmuted NLA track found")
+            return {'CANCELLED'}
+
+        export_path = bpy.path.abspath(context.scene.export_path)
+        file_path = os.path.join(export_path, active_track.name + ".fbx")
+
+        # Sync frame range to track
+        orig_start, orig_end = context.scene.frame_start, context.scene.frame_end
+        if active_track.strips:
+            s_f = min(s.frame_start for s in active_track.strips)
+            e_f = max(s.frame_end for s in active_track.strips)
+            context.scene.frame_start, context.scene.frame_end = int(s_f), int(e_f)
+
+        bpy.ops.export_scene.vizor_fbx(
+            filepath=file_path,
+            use_selection=True,
+            use_visible=False,
+            object_types={'ARMATURE', 'MESH'},
+            global_scale=1.0,
+            apply_unit_scale=False,
+            apply_scale_options='FBX_SCALE_UNITS',
+            use_space_transform=False,
+            bake_space_transform=False,
+            mesh_smooth_type='OFF',
+            primary_bone_axis='Y',
+            secondary_bone_axis='X',
+            use_armature_deform_only=True,
+            armature_nodetype='REMOVE_GHOST',
+            bake_anim=True,
+            bake_anim_use_all_bones=True,
+            bake_anim_use_nla_strips=True,
+            bake_anim_use_all_actions=False, # Only export the active NLA track
+            bake_anim_force_startend_keying=True,
+            axis_forward='Y',
+            axis_up='Z',
+            path_mode='AUTO'
+        )
+
+        context.scene.frame_start, context.scene.frame_end = orig_start, orig_end
+        self.report({'INFO'}, f"Exported Active Track: {active_track.name}.fbx")
+        return {'FINISHED'}
+
+
 class VIEW3D_PT_vizor_exporter_precise(bpy.types.Panel):
     bl_label = "Vizor Batch Exporter"
     bl_idname = "VIEW3D_PT_vizor_exporter_precise"
@@ -303,18 +370,27 @@ class VIEW3D_PT_vizor_exporter_precise(bpy.types.Panel):
         layout.label(text="Export Animations One FBX:")
         layout.operator(EXPORT_OT_vizor_full_mesh_anim.bl_idname, icon='ANIM_DATA')
 
+        layout.separator()
+        
+        layout.label(text="Export Animations One FBX:")
+        layout.operator(EXPORT_OT_vizor_active_nla_mesh.bl_idname, icon='ANIM_DATA')
+
+classes = (
+    EXPORT_OT_vizor_active_nla_mesh,
+    EXPORT_OT_vizor_model,
+    EXPORT_OT_vizor_nla_separate,
+    VIEW3D_PT_vizor_exporter_precise,
+    EXPORT_OT_vizor_full_mesh_anim,
+)
+
 def register():
-    bpy.utils.register_class(EXPORT_OT_vizor_model)
-    bpy.utils.register_class(EXPORT_OT_vizor_nla_separate)
-    bpy.utils.register_class(VIEW3D_PT_vizor_exporter_precise)
-    bpy.utils.register_class(EXPORT_OT_vizor_full_mesh_anim)
+    for my_class in classes:
+        bpy.utils.register_class(my_class)
     bpy.types.Scene.export_path = bpy.props.StringProperty(name="Export Path", subtype='DIR_PATH')
 
 def unregister():
-    bpy.utils.unregister_class(EXPORT_OT_vizor_model)
-    bpy.utils.unregister_class(EXPORT_OT_vizor_nla_separate)
-    bpy.utils.unregister_class(VIEW3D_PT_vizor_exporter_precise)
-    bpy.utils.unregister_class(EXPORT_OT_vizor_full_mesh_anim)
+    for my_class in classes:
+        bpy.utils.unregister_class(my_class)
     del bpy.types.Scene.export_path
 
 if __name__ == "__main__":
