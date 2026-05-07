@@ -316,7 +316,7 @@ class EXPORT_OT_vizor_active_nla_mesh(bpy.types.Operator):
             use_selection=True,
             use_visible=False,
             object_types={'ARMATURE', 'MESH'},
-            global_scale=1.0,
+            global_scale=GLOBAL_SCALE,
             apply_unit_scale=False,
             apply_scale_options='FBX_SCALE_UNITS',
             use_space_transform=False,
@@ -331,6 +331,8 @@ class EXPORT_OT_vizor_active_nla_mesh(bpy.types.Operator):
             bake_anim_use_nla_strips=True,
             bake_anim_use_all_actions=False, # Only export the active NLA track
             bake_anim_force_startend_keying=True,
+            bake_anim_step=1.0,
+            bake_anim_simplify_factor=0.0,
             axis_forward='Y',
             axis_up='Z',
             path_mode='AUTO'
